@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Callina</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="hero">
+    <div id="cat" class="cat-slot"></div>
+    <div class="brand">
+      <h1>Callina</h1>
+      <p id="tagline" class="muted">Prices in LKR</p>
+    </div>
+  </header>
+
+  <label class="row">
+    <span>Convert prices</span>
+    <input type="checkbox" id="enabled" class="switch" role="switch">
+  </label>
+
+  <label class="row" id="siteRow" hidden>
+    <span>Disable on <b id="host"></b></span>
+    <input type="checkbox" id="siteDisabled" class="switch" role="switch">
+  </label>
+
+  <label class="row" id="dollarRow" hidden>
+    <span>On this site, $ means</span>
+    <select id="dollar"></select>
+  </label>
+
+  <p id="count" class="status"></p>
+
+  <details id="work">
+    <summary>My income <span id="workSummary" class="muted"></span></summary>
+    <div class="work-grid">
+      <label>I earn <input id="incAmount" type="number" min="0" step="any" inputmode="decimal" placeholder="amount"></label>
+      <select id="incCurrency" aria-label="Income currency"></select>
+      <label>hours / day <input id="incHours" type="number" min="1" max="24" step="any"></label>
+      <label>days / month <input id="incDays" type="number" min="1" max="31" step="any"></label>
+    </div>
+    <p id="workPreview" class="muted small"></p>
+  </details>
+
+  <footer>
+    <span id="rates" class="muted small">Loading rates…</span>
+    <button id="refresh" type="button" title="Refresh exchange rates" aria-label="Refresh exchange rates">↻</button>
+    <a href="#" id="openOptions">Options</a>
+  </footer>
+
+  <script src="../shared/currencies.js"></script>
+  <script src="../shared/settings.js"></script>
+  <script src="../shared/cats.js"></script>
+  <script src="../content/convert.js"></script>
+  <script src="../shared/ui.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

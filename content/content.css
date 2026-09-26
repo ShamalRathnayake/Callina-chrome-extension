@@ -1,0 +1,12 @@
+/* Only the badge *host* lives in the page's style scope; everything visible is inside
+   a closed shadow root (see scanner.js), so page CSS can't leak in. */
+callina-badge[data-callina] {
+  all: unset !important;
+  display: inline !important;
+}
+callina-badge[data-callina][hidden] {
+  display: none !important;
+}
+callina-tip[data-callina] {
+  all: initial !important;
+}

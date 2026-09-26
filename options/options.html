@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Callina options</title>
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <div id="heroCat" class="hero-cat"></div>
+    <div>
+      <h1>Callina</h1>
+      <p class="muted">Foreign prices, in your money and your hours. Changes save automatically and apply to open tabs instantly.</p>
+      <p id="saved" class="saved" aria-live="polite"></p>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. Home currency</h2>
+    <p class="muted">Prices get converted into this currency. Prices already in it are left alone.</p>
+    <div class="home-picker">
+      <input id="homeFilter" type="search" placeholder="Search, e.g. rupee or LKR" aria-label="Search currencies" autocomplete="off">
+      <select id="home" size="8" aria-label="Home currency"></select>
+    </div>
+    <p class="muted small">Selected: <b id="homeLabel"></b></p>
+  </section>
+
+  <section>
+    <h2>2. Work settings</h2>
+    <div class="sentence">
+      I earn <input id="incAmount" type="number" min="0" step="any" inputmode="decimal" placeholder="amount">
+      <select id="incCurrency" aria-label="Income currency"></select> per month,
+      by working <input id="incHours" type="number" min="1" max="24" step="any" class="short"> hours a day,
+      for <input id="incDays" type="number" min="1" max="31" step="any" class="short"> days a month.
+    </div>
+    <p id="workPreview" class="preview"></p>
+  </section>
+
+  <section>
+    <h2>3. Display</h2>
+    <label class="check"><input type="checkbox" id="showWork"> Show work hours in the badge</label>
+    <fieldset>
+      <legend>Rounding</legend>
+      <label><input type="radio" name="rounding" value="whole"> Whole numbers</label>
+      <label><input type="radio" name="rounding" value="2dp"> 2 decimals</label>
+    </fieldset>
+    <fieldset>
+      <legend>Badge style</legend>
+      <label><input type="radio" name="style" value="subtle"> Subtle</label>
+      <label><input type="radio" name="style" value="bold"> Bold</label>
+    </fieldset>
+    <p class="sample">Preview: $49.99 <span id="sampleBadge" class="pill subtle"></span></p>
+  </section>
+
+  <section>
+    <h2>4. Mascot</h2>
+    <div class="state-bar" role="group" aria-label="Preview reaction">
+      <span class="muted small">Preview reaction:</span>
+      <button type="button" data-state="love">in love</button>
+      <button type="button" data-state="happy">happy</button>
+      <button type="button" data-state="idle" class="on">idle</button>
+      <button type="button" data-state="worried">worried</button>
+      <button type="button" data-state="shocked">shocked</button>
+      <button type="button" data-state="faint">faint</button>
+    </div>
+    <div id="catGrid" role="radiogroup" aria-label="Mascot"></div>
+
+    <div class="upload">
+      <div id="dropZone" class="upload-preview" aria-hidden="true">Drop images here</div>
+      <div>
+        <h3>Add your own cats</h3>
+        <p class="muted small">Got a favourite cat meme? Upload it for your own use: PNG, JPG, GIF or WebP, up to 1 MB each,
+          up to 6 images. They stay on this device (browser local storage). Uploads get a generic bounce/shake
+          instead of the drawn animations. <span id="uploadCount"></span></p>
+        <label class="btn" id="uploadBtn">Choose images…<input id="upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden></label>
+        <p id="uploadMsg" class="small" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. Price moods</h2>
+    <p class="muted">When you hover a price, a cat reacts to how affordable it is and says something about it.
+      The ranges follow your work settings (or the price itself, until those are filled in). Click a cat to hear another line.</p>
+    <fieldset>
+      <label><input type="radio" name="moodMode" value="squad"> A different cat for each mood</label>
+      <label><input type="radio" name="moodMode" value="single"> Always my mascot, only its face changes</label>
+    </fieldset>
+    <ul id="moodList" class="moods"></ul>
+  </section>
+
+  <section>
+    <h2>6. Disabled sites</h2>
+    <p class="muted">Turn a site off from the toolbar popup. Sites listed here are left untouched.</p>
+    <ul id="sites" class="sites"></ul>
+  </section>
+
+  <footer class="muted small">
+    <span id="rateLine"></span><br>
+    Privacy: no data leaves your browser except a request for exchange rates.
+  </footer>
+</main>
+
+<script src="../shared/currencies.js"></script>
+<script src="../shared/settings.js"></script>
+<script src="../shared/cats.js"></script>
+<script src="../content/convert.js"></script>
+<script src="../shared/ui.js"></script>
+<script src="options.js"></script>
+</body>
+</html>

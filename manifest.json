@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Callina",
+  "version": "1.0.0",
+  "description": "Shows foreign prices in your home currency (LKR by default) and in hours of work, with a judgmental cat.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://cdn.jsdelivr.net/npm/@fawazahmed0/*",
+    "https://latest.currency-api.pages.dev/*",
+    "https://open.er-api.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "Callina",
+    "default_popup": "popup/popup.html",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" }
+  },
+  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "options_ui": { "page": "options/options.html", "open_in_tab": true },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "shared/currencies.js",
+        "shared/settings.js",
+        "shared/cats.js",
+        "content/parser.js",
+        "content/convert.js",
+        "content/scanner.js"
+      ],
+      "css": ["content/content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

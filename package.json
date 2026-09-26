@@ -1,0 +1,8 @@
+{
+  "name": "callina",
+  "private": true,
+  "description": "Callina Chrome extension (no build step; this file only holds the test script).",
+  "scripts": {
+    "test": "node --test tests/"
+  }
+}

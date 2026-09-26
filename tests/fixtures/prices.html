@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Callina fixtures</title>
+<!-- Note: no priceCurrency metadata on purpose, so "$" falls through to the defaults. -->
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; color: #222; }
+  h1 { margin-bottom: 4px; }
+  h2 { margin-top: 28px; border-bottom: 1px solid #ddd; }
+  ol { padding-left: 28px; }
+  li { padding: 3px 6px; border-left: 4px solid #ccc; margin: 3px 0; }
+  li.pass { border-color: #2e9d4f; background: #effaf2; }
+  li.fail { border-color: #d33; background: #fdeeee; }
+  li .got { float: right; font-size: 12px; color: #777; }
+  #summary { padding: 8px 12px; border-radius: 8px; background: #f4f4f4; font-weight: 600; }
+  #summary.ok { background: #e3f6e8; } #summary.bad { background: #fde3e3; }
+  .note { color: #666; font-size: 13px; }
+  .flex { display: flex; gap: 12px; align-items: baseline; }
+  table td { border: 1px solid #ddd; padding: 2px 8px; }
+  /* mimic Amazon's screen-reader-only price copy */
+  .a-offscreen { position: absolute; left: -10000px; }
+</style>
+</head>
+<body>
+<h1>Callina fixtures</h1>
+<p class="note">Load the extension, enable “Allow access to file URLs” for it, then open this file. Home currency must be <b>LKR</b> (the default).
+  Each row says how many badges it expects; rows turn green/red about 3 s after load.</p>
+<div id="summary">Waiting for Callina…</div>
+
+<h2>Prices that should convert</h2>
+<ol id="prices">
+  <li data-expect="1">Plain dollar: $49.99</li>
+  <li data-expect="1">Euro, dot thousands: €1.299,00</li>
+  <li data-expect="1">Pound: £20</li>
+  <li data-expect="1">ISO prefix: USD 150</li>
+  <li data-expect="1">Yen: ¥3,000</li>
+  <li data-expect="1">ISO suffix: 49 USD</li>
+  <li data-expect="1">ISO glued: EUR49</li>
+  <li data-expect="1">Space thousands: 1 234,56 €</li>
+  <li data-expect="1">Narrow NBSP thousands: 1&#x202F;234,56 €</li>
+  <li data-expect="1">Comma thousands: 1,234.56 GBP</li>
+  <li data-expect="1">Rupee: ₹499</li>
+  <li data-expect="1">Won: ₩12,000</li>
+  <li data-expect="1">Ruble: 990 ₽</li>
+  <li data-expect="1">Lira: ₺150</li>
+  <li data-expect="1">Dong: 250.000₫</li>
+  <li data-expect="1">Baht: ฿1,200</li>
+  <li data-expect="1">Peso: ₱999</li>
+  <li data-expect="1">Real: R$ 59,90</li>
+  <li data-expect="1">Aussie: A$25</li>
+  <li data-expect="1">Canadian: C$30</li>
+  <li data-expect="1">Canadian (CA$): CA$ 1,299.00</li>
+  <li data-expect="1">Singapore: S$12</li>
+  <li data-expect="1">Hong Kong: HK$88</li>
+  <li data-expect="1">Kiwi: NZ$40</li>
+  <li data-expect="1">US$: US$15</li>
+  <li data-expect="1">eBay style: US $12.99</li>
+  <li data-expect="1">Ringgit: RM 45.50</li>
+  <li data-expect="1">Krona: 199 kr</li>
+  <li data-expect="1">Złoty: 49,99 zł</li>
+  <li data-expect="1">Franc: Fr. 12.50</li>
+  <li data-expect="1">Franc ISO: CHF 12.50</li>
+  <li data-expect="1">Japanese: 3000円</li>
+  <li data-expect="1">Yuan: CN¥88</li>
+  <li data-expect="1">Suffix dollar: 49.99$</li>
+  <li data-expect="1">Thousands suffix: $1.2k</li>
+  <li data-expect="1">Millions: $3M</li>
+  <li data-expect="1">Single-sep thousands: Price 1.234 €</li>
+  <li data-expect="2">Range, both marked: $10 – $20</li>
+  <li data-expect="1">Range, one marker: $10–20</li>
+  <li data-expect="2">Two in one sentence: Was $59.99, now $45 today</li>
+  <li data-expect="1">Inside a link: <a href="#top">Buy it for $5</a></li>
+  <li data-expect="1">Inside a button: <button type="button">Add to cart – $9.99</button></li>
+  <li data-expect="1">Table cell: <table><tr><td>Item</td><td>€ 7,50</td></tr></table></li>
+  <li data-expect="1">Split spans: <span class="price"><span>$</span><span>49</span><span>.99</span></span></li>
+  <li data-expect="1">Split with sup cents: <span class="price"><span>$49</span><sup>99</sup></span></li>
+  <li data-expect="1">Amazon style: <span class="a-price"><span class="a-offscreen">$129.00</span><span aria-hidden="true"><span class="a-price-symbol">$</span><span class="a-price-whole">129<span class="a-price-decimal">.</span></span><span class="a-price-fraction">00</span></span></span></li>
+  <li data-expect="1">Split ISO: <span><b>EUR</b> <span>2.500,00</span></span></li>
+  <li data-expect="1">In flex row: <span class="flex"><span>Total</span><strong>£1,050</strong></span></li>
+</ol>
+
+<h2>Things that must NOT convert</h2>
+<ol id="nonprices">
+  <li data-expect="0">Date: 2024-05-01 and 12/05/2024</li>
+  <li data-expect="0">Phone: +1 (555) 123-4567</li>
+  <li data-expect="0">Version: v1.2.3 and 1.2.3 USD</li>
+  <li data-expect="0">Percentage: 20% off, save $5%</li>
+  <li data-expect="0">Order #12345, chapter 3, 42 items</li>
+  <li data-expect="0">Words: 100 kroner, FIRM 50, Hours 5</li>
+  <li data-expect="0">Programming: PHP 8.2 released</li>
+  <li data-expect="0">Time: meet at 10:30</li>
+  <li data-expect="0">Input: <input value="$49.99"> <input placeholder="€20"></li>
+  <li data-expect="0">Textarea: <textarea rows="1">$10 and €20</textarea></li>
+  <li data-expect="0">Code: <code>$5 + €3</code></li>
+  <li data-expect="0">Pre: <pre style="display:inline">price = £10</pre></li>
+  <li data-expect="0">Editable: <span contenteditable="true">$30 editable</span></li>
+  <li data-expect="0">SVG text: <svg width="80" height="20"><text x="0" y="15">$40</text></svg></li>
+  <li data-expect="0">Select: <select><option>$99 plan</option></select></li>
+  <li data-expect="0">Home currency (LKR): Rs. 1,500 · LKR 2,500 · රු 900</li>
+</ol>
+
+<h2>Dynamic content</h2>
+<ol id="dynamic">
+  <li data-expect="1" id="later">Added later: <span id="later-slot"></span></li>
+  <li data-expect="1">Text that changes: <span id="changing">$10</span></li>
+</ol>
+
+<script>
+  // Simulate an SPA: add a price after 1 s, change a price after 1.5 s.
+  setTimeout(() => { document.getElementById('later-slot').textContent = '€15 (added by script)'; }, 1000);
+  setTimeout(() => { document.getElementById('changing').firstChild.data = '$12'; }, 1500);
+
+  // Self-check: count badges per row.
+  function check() {
+    let pass = 0, fail = 0;
+    for (const li of document.querySelectorAll('li[data-expect]')) {
+      const want = +li.dataset.expect;
+      const got = li.querySelectorAll('callina-badge:not([hidden])').length;
+      li.classList.toggle('pass', got === want);
+      li.classList.toggle('fail', got !== want);
+      let tag = li.querySelector(':scope > .got');
+      if (!tag) { tag = document.createElement('span'); tag.className = 'got'; li.prepend(tag); }
+      tag.textContent = `expected ${want}, got ${got}`;
+      got === want ? pass++ : fail++;
+    }
+    const s = document.getElementById('summary');
+    const anyBadge = document.querySelector('callina-badge');
+    s.textContent = anyBadge ? `${pass} passed, ${fail} failed` : 'No badges yet: is Callina loaded (and allowed on file URLs)?';
+    s.className = anyBadge ? (fail ? 'bad' : 'ok') : '';
+  }
+  setTimeout(check, 3000);
+  setInterval(check, 5000);
+</script>
+</body>
+</html>
