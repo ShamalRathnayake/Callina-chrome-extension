@@ -67,7 +67,7 @@ No accounts, no backend, no analytics, no build step.
 - **Options page**:
   - Home currency, searchable (any currency the rate source supports).
   - Work settings, with an "your time is worth ≈ Rs 1,250 / hour" preview.
-  - Display: work hours on/off, whole numbers or 2 decimals, subtle or bold badge.
+  - Display: work hours on/off, whole numbers or 2 decimals, subtle or bold badge, and a colour theme (Caramel, Matcha, Blueberry, Sakura, Graphite, Midnight). The theme styles the popup, the Options page and the badges/tooltips on web pages; presets follow the system light/dark mode, except Midnight (always dark). Presets live in `shared/themes.js`.
   - Mascot picker (classic, meme and uploaded cats) with reaction previews, and the upload area.
   - Price moods: the six ranges (in your work time and currency), a cat per mood, sample lines.
   - List of disabled sites.

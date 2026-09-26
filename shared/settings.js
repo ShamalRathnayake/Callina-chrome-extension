@@ -8,6 +8,7 @@
     homeCurrency: 'LKR',
     income: { amount: null, currency: 'LKR', hoursPerDay: 8, daysPerMonth: 22 },
     display: { showWork: true, rounding: 'whole', style: 'subtle' },
+    theme: 'caramel', // a preset id from shared/themes.js; unknown ids fall back to the default there
     mascot: 'loaf',
     // 'squad': a different cat per affordability mood; 'single': always `mascot`, only its face changes.
     moodMode: 'squad',
@@ -26,6 +27,7 @@
       homeCurrency: typeof s.homeCurrency === 'string' && /^[A-Z]{3}$/.test(s.homeCurrency) ? s.homeCurrency : d.homeCurrency,
       income: { ...d.income, ...(isObj(s.income) ? s.income : {}) },
       display: { ...d.display, ...(isObj(s.display) ? s.display : {}) },
+      theme: typeof s.theme === 'string' && /^[a-z]+$/.test(s.theme) ? s.theme : d.theme,
       mascot: typeof s.mascot === 'string' ? s.mascot : d.mascot,
       moodMode: s.moodMode === 'single' ? 'single' : 'squad',
       moodCats: { ...d.moodCats, ...(isObj(s.moodCats) ? s.moodCats : {}) },
