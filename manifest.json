@@ -24,6 +24,7 @@
       "js": [
         "shared/currencies.js",
         "shared/settings.js",
+        "shared/themes.js",
         "shared/cats.js",
         "content/parser.js",
         "content/convert.js",

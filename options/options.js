@@ -140,6 +140,45 @@
     });
   }
 
+  // Theme presets: each card shows the preset's light and dark palettes side by side.
+  function themeCard(id, t) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'theme-card';
+    card.dataset.id = id;
+    card.setAttribute('role', 'radio');
+    const swatch = document.createElement('div');
+    swatch.className = 'theme-swatch';
+    for (const p of t.light === t.dark ? [t.dark] : [t.light, t.dark]) {
+      const half = document.createElement('div');
+      half.style.background = p.bg;
+      half.style.color = p.fg;
+      const pill = document.createElement('span');
+      pill.style.background = p.accent;
+      pill.style.borderColor = p.accentStrong;
+      const line = document.createElement('i');
+      line.style.background = p.muted;
+      half.append(pill, line);
+      swatch.appendChild(half);
+    }
+    const name = document.createElement('b');
+    name.textContent = t.name;
+    const text = document.createElement('span');
+    text.textContent = t.blurb;
+    card.append(swatch, name, text);
+    card.addEventListener('click', () => save((s) => { s.theme = id; }));
+    return card;
+  }
+  for (const [id, t] of Object.entries(CL.themes.THEMES)) $('themeGrid').appendChild(themeCard(id, t));
+
+  function renderTheme() {
+    const current = CL.themes.themeOf(settings.theme);
+    ui.applyTheme(settings.theme);
+    for (const card of $('themeGrid').children) {
+      card.setAttribute('aria-checked', String(CL.themes.THEMES[card.dataset.id] === current));
+    }
+  }
+
   // ---- 4. mascot -----------------------------------------------------------------
   const gridCats = [];
   const customUrl = (mascot) => (customs.find((c) => 'custom:' + c.id === mascot) || {}).url || null;
@@ -436,6 +475,7 @@
     renderHome();
     renderWorkPreview();
     renderDisplay();
+    renderTheme();
     if (rebuild) renderGrid(); else markSelected();
     renderUpload();
     renderMoods(rebuild);

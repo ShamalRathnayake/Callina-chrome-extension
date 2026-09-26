@@ -47,6 +47,24 @@
     return customCatIndex.filter((c) => data['customCat:' + c.id]).map((c) => ({ ...c, url: data['customCat:' + c.id] }));
   }
 
+  // ---- colour theme ---------------------------------------------------------------
+  // The last theme is remembered in localStorage (this page's own origin) so it can be
+  // applied before first paint, while the real value loads from chrome.storage.
+  const THEME_KEY = 'callina-theme';
+  function applyTheme(id) {
+    let el = document.getElementById('cl-theme');
+    if (!el) {
+      el = document.createElement('style');
+      el.id = 'cl-theme';
+      document.head.appendChild(el);
+    }
+    el.textContent = CL.themes.themeCss(id);
+    try { localStorage.setItem(THEME_KEY, id); } catch (_) { /* storage blocked */ }
+  }
+  let cachedTheme = null;
+  try { cachedTheme = localStorage.getItem(THEME_KEY); } catch (_) { /* storage blocked */ }
+  applyTheme(cachedTheme || CL.themes.DEFAULT_THEME);
+
   function injectCatCss() {
     if (document.getElementById('cc-css')) return;
     const style = document.createElement('style');
@@ -161,5 +179,5 @@
     return a;
   }
 
-  CL.ui = { erApiAttribution, shrinkImage, loadSettings, saveSettings, loadCustomUrl, loadCustomCats, injectCatCss, currencyChoices, fillCurrencySelect, timeAgo, updateToolbarIcon };
+  CL.ui = { applyTheme, erApiAttribution, shrinkImage, loadSettings, saveSettings, loadCustomUrl, loadCustomCats, injectCatCss, currencyChoices, fillCurrencySelect, timeAgo, updateToolbarIcon };
 })(globalThis);

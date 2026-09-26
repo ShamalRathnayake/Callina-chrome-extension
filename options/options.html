@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Callina options</title>
 <link rel="stylesheet" href="options.css">
+<script src="../shared/currencies.js"></script>
+<script src="../shared/settings.js"></script>
+<script src="../shared/themes.js"></script>
+<script src="../shared/cats.js"></script>
+<script src="../content/convert.js"></script>
+<script src="../shared/ui.js"></script>
 </head>
 <body>
 <main>
@@ -52,6 +58,10 @@
       <label><input type="radio" name="style" value="bold"> Bold</label>
     </fieldset>
     <p class="sample">Preview: $49.99 <span id="sampleBadge" class="pill subtle"></span></p>
+    <h3 class="subhead">Theme</h3>
+    <p class="muted small">Colours for this page, the toolbar popup, and the badges and tooltips on web pages.
+      Each preset follows your system's light or dark mode, except Midnight, which is always dark.</p>
+    <div id="themeGrid" class="theme-grid" role="radiogroup" aria-label="Theme"></div>
   </section>
 
   <section>
@@ -105,11 +115,6 @@
   </footer>
 </main>
 
-<script src="../shared/currencies.js"></script>
-<script src="../shared/settings.js"></script>
-<script src="../shared/cats.js"></script>
-<script src="../content/convert.js"></script>
-<script src="../shared/ui.js"></script>
 <script src="options.js"></script>
 </body>
 </html>

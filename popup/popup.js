@@ -52,6 +52,7 @@
 
   // ---- render ---------------------------------------------------------------
   function render() {
+    ui.applyTheme(settings.theme);
     const home = settings.homeCurrency;
     $('tagline').textContent = settings.enabled ? `Showing prices in ${home}` : 'Taking a nap (off)';
     $('enabled').checked = settings.enabled;

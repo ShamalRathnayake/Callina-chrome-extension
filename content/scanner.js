@@ -43,12 +43,12 @@
   text-shadow:none;line-height:inherit;vertical-align:baseline;cursor:help;box-shadow:none;
   -webkit-box-decoration-break:clone;box-decoration-break:clone}
 .pill>span{white-space:nowrap}
-.pill.subtle{color:inherit;background:rgba(246,170,75,.16);border:1px solid rgba(246,170,75,.6)}
-.pill.bold{color:#2A1703;background:#F6AA4B;border:1px solid #C47A1E;font-weight:650}`;
+.pill.subtle{color:inherit;background:var(--cl-accent-soft);border:1px solid var(--cl-accent-edge)}
+.pill.bold{color:var(--cl-on-accent);background:var(--cl-accent);border:1px solid var(--cl-accent-strong);font-weight:650}`;
 
   const TIP_CSS = `
 .card{box-sizing:border-box;display:flex;gap:10px;align-items:center;width:max-content;max-width:290px;padding:10px 12px;
-  border-radius:12px;background:#FFFDF8;color:#231A10;border:1px solid #F0D2A6;box-shadow:0 8px 28px rgba(40,25,5,.22);
+  border-radius:12px;background:var(--cl-card);color:var(--cl-fg);border:1px solid var(--cl-accent-edge);box-shadow:0 8px 28px var(--cl-shadow);
   font:13px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;text-align:left;
   opacity:0;transition:opacity .12s ease}
 .card.show{opacity:1}
@@ -60,31 +60,36 @@
 .mood[data-mood=pricey]{background:#FFEFCC;color:#8A5A00}.mood[data-mood=ouch]{background:#FFE0D3;color:#A33A12}
 .mood[data-mood=nope]{background:#FFD6DD;color:#A0142E}
 .say{position:relative;display:block;width:max-content;max-width:100%;box-sizing:border-box;margin:1px 0 6px 6px;
-  padding:4px 10px;border-radius:12px;background:#fff;border:1.5px solid #E7C99C;font-weight:650;font-size:12.5px;line-height:1.3}
+  padding:4px 10px;border-radius:12px;background:var(--cl-bg);border:1.5px solid var(--cl-accent-edge);font-weight:650;font-size:12.5px;line-height:1.3}
 .say::before{content:"";position:absolute;left:-8px;top:50%;margin-top:-6px;border:6px solid transparent;border-left:0;
-  border-right:8px solid #E7C99C}
+  border-right:8px solid var(--cl-accent-edge)}
 .card.show .say{animation:say-pop .28s cubic-bezier(.2,1.6,.4,1)}
 @keyframes say-pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
-.orig{font-weight:600}.orig small{font-weight:400;color:#86705A;margin-left:4px}
+.orig{font-weight:600}.orig small{font-weight:400;color:var(--cl-muted);margin-left:4px}
 .conv{font-size:16px;font-weight:700;margin:1px 0}
-.rate,.via{font-size:11px;color:#86705A}
-.work{font-size:12.5px;color:#B15F00;font-weight:600;margin-top:3px}
-.nowork{font-size:11.5px;color:#C0392B;font-weight:600;margin-top:3px}
-@media (prefers-color-scheme:dark){
-  .card{background:#241D16;color:#F7EBDC;border-color:#5A4127}
-  .orig small,.rate,.via{color:#C4AB8E}.work{color:#FFB757}.nowork{color:#FF8A7A}
-  .say{background:#33291F;border-color:#6B4F2E}.say::before{border-right-color:#6B4F2E}}
+.rate,.via{font-size:11px;color:var(--cl-muted)}
+.work{font-size:12.5px;color:var(--cl-work);font-weight:600;margin-top:3px}
+.nowork{font-size:11.5px;color:var(--cl-bad);font-weight:600;margin-top:3px}
 @media (prefers-reduced-motion:reduce){.card{transition:none}.card.show .say{animation:none}}`;
+
+  // The colour theme is one shared sheet adopted by every shadow root, so switching
+  // themes is a single replaceSync that restyles every badge at once.
+  const themeCss = () => CL.themes.themeCss(settings.theme, ':host', 'cl-');
+  let themeSheet = null;
+  try { themeSheet = new CSSStyleSheet(); } catch (_) { /* no constructable sheets; <style> fallback below */ }
+  function applyTheme() {
+    if (themeSheet) themeSheet.replaceSync(themeCss());
+  }
 
   const sheetCache = new Map();
   function addStyles(root, css) {
     try {
       let sheet = sheetCache.get(css);
       if (!sheet) { sheet = new CSSStyleSheet(); sheet.replaceSync(css); sheetCache.set(css, sheet); }
-      root.adoptedStyleSheets = [sheet];
+      root.adoptedStyleSheets = [themeSheet, sheet];
     } catch (_) {
       const style = document.createElement('style');
-      style.textContent = css;
+      style.textContent = themeCss() + css;
       root.appendChild(style);
     }
   }
@@ -567,6 +572,7 @@
   }
 
   function applySettings(prev) {
+    if (!prev || prev.theme !== settings.theme) applyTheme();
     const needRescan = !prev || prev.homeCurrency !== settings.homeCurrency ||
       (prev.dollarOverrides[SITE] || null) !== (settings.dollarOverrides[SITE] || null);
     if (!shouldRun()) { stop(); return; }
@@ -649,6 +655,7 @@
       const { settings: stored } = await chrome.storage.sync.get('settings');
       settings = S.normalizeSettings(stored);
     } catch (_) { /* use defaults */ }
+    applyTheme();
     pageCurrency = detectPageCurrency();
     if (!shouldRun()) return;
     await requestRates();
