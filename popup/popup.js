@@ -37,6 +37,19 @@
     tabId = tab ? tab.id : null;
   } catch (_) { /* no active tab */ }
 
+  // Saves, or shows why it couldn't; either way `settings` ends up matching storage.
+  async function save(mutator) {
+    try {
+      settings = await ui.saveSettings(mutator);
+      $('err').hidden = true;
+    } catch (e) {
+      settings = await ui.loadSettings();
+      $('err').textContent = e.message;
+      $('err').hidden = false;
+    }
+    render();
+  }
+
   // ---- render ---------------------------------------------------------------
   function render() {
     const home = settings.homeCurrency;
@@ -45,12 +58,12 @@
 
     if (pageInfo) {
       const host = pageInfo.hostname;
-      $('siteRow').hidden = false;
-      $('host').textContent = host || 'this page';
+      $('siteRow').hidden = !host; // e.g. file:// pages have no site to switch off
+      $('host').textContent = host;
       $('siteDisabled').checked = settings.disabledSites.includes(host);
 
       const override = settings.dollarOverrides[host] || '';
-      const showDollar = pageInfo.hasDollar || !!override;
+      const showDollar = !!host && (pageInfo.hasDollar || !!override);
       $('dollarRow').hidden = !showDollar;
       const sel = $('dollar');
       if (showDollar && sel.dataset.auto !== pageInfo.dollarAuto) {
@@ -85,6 +98,9 @@
 
   function renderRates() {
     const el = $('rates');
+    const src = rateInfo && rateInfo.rates && rateInfo.rates.source;
+    $('attrib').hidden = src !== 'open.er-api.com';
+    if (src === 'open.er-api.com' && !$('attrib').firstChild) $('attrib').appendChild(ui.erApiAttribution());
     if (!rateInfo || !rateInfo.rates) {
       el.textContent = rateInfo && rateInfo.status && !rateInfo.status.ok ? 'Rates unavailable (offline?)' : 'Loading rates…';
       el.title = rateInfo && rateInfo.status ? rateInfo.status.error || '' : '';
@@ -128,8 +144,7 @@
   $('enabled').addEventListener('change', async (e) => {
     const on = e.target.checked;
     react(on ? 'happy' : 'faint', on ? 1800 : 2600);
-    settings = await ui.saveSettings((s) => { s.enabled = on; });
-    render();
+    await save((s) => { s.enabled = on; });
   });
 
   $('siteDisabled').addEventListener('change', async (e) => {
@@ -137,18 +152,17 @@
     if (!host) return;
     const off = e.target.checked;
     react(off ? 'shocked' : 'happy');
-    settings = await ui.saveSettings((s) => {
+    await save((s) => {
       s.disabledSites = s.disabledSites.filter((h) => h !== host);
       if (off) s.disabledSites.push(host);
     });
-    render();
   });
 
   $('dollar').addEventListener('change', async (e) => {
     const host = pageInfo && pageInfo.hostname;
     if (!host) return;
     const v = e.target.value;
-    settings = await ui.saveSettings((s) => {
+    await save((s) => {
       if (v) s.dollarOverrides[host] = v;
       else delete s.dollarOverrides[host];
     });
@@ -160,8 +174,7 @@
     clearTimeout(workTimer);
     workTimer = setTimeout(async () => {
       const inc = incomeFromInputs();
-      settings = await ui.saveSettings((s) => { s.income = inc; });
-      renderWork();
+      await save((s) => { s.income = inc; });
     }, 400);
   }
   for (const id of ['incAmount', 'incHours', 'incDays', 'incCurrency']) {
@@ -176,6 +189,8 @@
     try {
       rateInfo = await chrome.runtime.sendMessage({ type: 'refreshRates' });
       react(rateInfo && rateInfo.status && rateInfo.status.ok ? 'happy' : 'shocked', 1400);
+    } catch (_) {
+      react('shocked', 1400); // worker unavailable; the rates line keeps the last known state
     } finally {
       btn.classList.remove('spin');
       btn.disabled = false;

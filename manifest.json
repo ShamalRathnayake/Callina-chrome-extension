@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Callina",
   "version": "1.0.0",
+  "minimum_chrome_version": "103",
   "description": "Shows foreign prices in your home currency (LKR by default) and in hours of work, with a judgmental cat.",
   "permissions": ["storage"],
   "host_permissions": [

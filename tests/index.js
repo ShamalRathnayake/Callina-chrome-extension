@@ -2,3 +2,4 @@
 'use strict';
 require('./parser.test.js');
 require('./convert.test.js');
+require('./rates.test.js');

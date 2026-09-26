@@ -161,3 +161,10 @@ test('settings normalisation', () => {
   assert.equal(catForMood(mine, 'pocket'), 'vibe'); // defaults kept for the rest
   assert.equal(catForMood({ ...mine, moodMode: 'single' }, 'nope'), 'judge');
 });
+
+test('cats: prototype names fall back to Loaf', () => {
+  require('../shared/cats.js'); // browser-style module: registers globalThis.Callina.cats
+  const c = globalThis.Callina.cats;
+  assert.equal(c.svg('constructor'), c.svg('loaf'));
+  assert.equal(c.svg('toString'), c.svg('loaf'));
+});

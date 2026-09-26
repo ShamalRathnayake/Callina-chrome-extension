@@ -29,6 +29,7 @@ p { margin: 4px 0 10px; }
 .top { display: flex; gap: 18px; align-items: center; margin-bottom: 18px; }
 .hero-cat { width: 110px; height: 110px; flex: none; }
 .saved { color: var(--ok); font-size: 13px; min-height: 1.5em; margin: 0; }
+.saved.err { color: var(--bad); }
 
 section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 14px 0; }
 

@@ -50,6 +50,9 @@ select, input[type="number"] {
 .switch:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
 
 .status { margin: 8px 2px; font-weight: 600; }
+.status.err { color: #c0392b; font-weight: 500; }
+@media (prefers-color-scheme: dark) { .status.err { color: #ff8a7a; } }
+.attrib { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
 
 details { margin: 6px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 6px 10px; }
 summary { cursor: pointer; font-weight: 600; }

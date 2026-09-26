@@ -194,3 +194,44 @@ test('JSON-LD priceCurrency', () => {
   assert.equal(currencyFromJsonLd({ '@graph': [{ '@type': 'Product', offers: { priceSpecification: { priceCurrency: 'NZD' } } }] }), 'NZD');
   assert.equal(currencyFromJsonLd({ '@type': 'Article' }), null);
 });
+
+test('lakh grouping (South Asian)', () => {
+  assert.equal(one('₹1,00,000').amount, 100000);
+  assert.equal(one('₹ 12,34,567.00').amount, 1234567);
+  assert.equal(one('Rs 10,00,000.50', { homeCurrency: 'USD' }).amount, 1000000.5);
+  assert.equal(parseNumber('1,00,000'), 100000);
+});
+
+test('grouping must be consistent', () => {
+  none('€1,234,5'); // decimal mark equal to the group separator
+  assert.ok(Number.isNaN(parseNumber('12,345,67')));
+  assert.ok(Number.isNaN(parseNumber('1.23.456')));
+  assert.equal(one('1.234.567,89 €').amount, 1234567.89);
+  assert.equal(one("CHF 1'234.50").amount, 1234.5);
+});
+
+test('plain space is not a separator after a prefix symbol', () => {
+  const p = one('Buy now: $10 250 sold');
+  assert.equal(p.amount, 10);
+  assert.equal(p.raw, '$10');
+  assert.equal(one('$ 1 234').amount, 1234); // no-break space still is
+  assert.equal(one('1 234 567 ¥').amount, 1234567); // suffix form still accepts plain spaces
+});
+
+test('long runs of grouped digits stay fast (no catastrophic backtracking)', () => {
+  for (const sep of [' ', ' ', "'", ',']) {
+    const text = ('123' + sep).repeat(4900) + 'x';
+    const t = performance.now();
+    findPrices(text);
+    assert.ok(performance.now() - t < 100, `separator ${JSON.stringify(sep)} took ${performance.now() - t} ms`);
+  }
+  none('$1'.padEnd(30000, ' 1')); // over the length cap: skipped outright
+});
+
+test('lookups ignore Object.prototype names', () => {
+  assert.equal(resolveCurrency('constructor', {}), null);
+  assert.equal(one('$10', { dollarOverride: 'constructor' }).currency, 'USD');
+  assert.equal(one('$10', { dollarOverride: 'EUR' }).currency, 'USD'); // override must be a $ currency
+  assert.equal(one('$10', { tld: 'constructor' }).currency, 'USD');
+  assert.equal(tldOf('x.constructor'), 'constructor');
+});

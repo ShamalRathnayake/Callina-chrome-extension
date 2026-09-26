@@ -23,11 +23,17 @@
   let settings = S.normalizeSettings({});
   let rates = null; // { table, date, fetchedAt, source }
   let customUrls = {}; // "custom:<id>" → data URL, only for uploads currently in use
+  let customsLoaded = null; // promise; uploads are read on the first hover, not on every page load
   let pageCurrency = null;
   let ctx = {};
   let running = false;
   let sawDollar = false;
+  // All per-node state lives here, not in DOM attributes or expandos the page could read or forge.
   let processed = new WeakSet(); // text nodes + split-price elements already handled
+  let splitEls = new WeakSet(); // elements whose combined text got one badge
+  let rests = new WeakSet(); // text nodes we split off; rejoined on stop()
+  let added = new WeakMap(); // owner node → nodes we inserted next to it
+  const badges = new WeakMap(); // our badge host → { pill, amount, high, currency, via, marker }
 
   // ---- styles ---------------------------------------------------------------
   const BADGE_CSS = `
@@ -120,24 +126,18 @@
     return { v, vh, hours, usd };
   }
 
-  function badgeData(host) {
-    const d = host.dataset;
-    return { amount: +d.amount, high: d.high ? +d.high : null, currency: d.currency, via: d.via, marker: d.marker };
-  }
-
   function renderBadge(host) {
-    const { amount, high, currency } = badgeData(host);
+    const { amount, high, currency, pill } = badges.get(host);
     const r = currency === settings.homeCurrency ? null : compute(amount, high, currency);
     if (!r) { host.hidden = true; return; }
     host.hidden = false;
-    host.__clPill.className = 'pill ' + (settings.display.style === 'bold' ? 'bold' : 'subtle');
+    pill.className = 'pill ' + (settings.display.style === 'bold' ? 'bold' : 'subtle');
     const text = CV.badgeText({
       home: r.v, homeHigh: r.vh, homeCurrency: settings.homeCurrency, hours: r.hours,
       income: settings.income, display: settings.display,
     });
     // Money and work time each stay on one line, but may wrap between them in narrow boxes.
     const [money, work] = text.split(' · ');
-    const pill = host.__clPill;
     pill.textContent = '';
     const m = document.createElement('span');
     m.textContent = money;
@@ -152,44 +152,61 @@
   function makeBadge(p) {
     const host = document.createElement('callina-badge');
     host.setAttribute('data-callina', '');
-    host.dataset.amount = String(p.amount);
-    if (p.amountHigh != null) host.dataset.high = String(p.amountHigh);
-    host.dataset.currency = p.currency;
-    host.dataset.via = p.via;
-    host.dataset.marker = p.marker;
+    host.tabIndex = 0; // keyboard users can focus a badge to read its tooltip
     const root = host.attachShadow({ mode: 'closed' });
     addStyles(root, BADGE_CSS);
     const pill = document.createElement('span');
     root.appendChild(pill);
-    host.__clPill = pill;
-    host.addEventListener('mouseenter', showTip);
-    host.addEventListener('mouseleave', hideTip);
+    badges.set(host, {
+      pill, amount: p.amount, high: p.amountHigh != null ? p.amountHigh : null,
+      currency: p.currency, via: p.via, marker: p.marker,
+    });
+    // Only real user input opens the tooltip; pages can't trigger it with synthetic events.
+    host.addEventListener('pointerenter', (e) => { if (e.isTrusted && e.pointerType === 'mouse') showTip(host); });
+    host.addEventListener('pointerleave', (e) => { if (e.isTrusted && e.pointerType === 'mouse') hideTip(); });
+    // Keyboard focus only; a tap also focuses the badge, and the click handler below owns that case.
+    host.addEventListener('focus', (e) => { if (e.isTrusted && host.matches(':focus-visible')) showTip(host); });
+    host.addEventListener('blur', hideTip);
+    host.addEventListener('pointerdown', (e) => { lastPointer = e.pointerType; });
+    host.addEventListener('click', (e) => {
+      if (!e.isTrusted || lastPointer === 'mouse') return;
+      // Touch/pen: a tap toggles the tooltip instead of following a surrounding link.
+      e.preventDefault();
+      e.stopPropagation();
+      if (tipBadge === host) hideTip(); else showTip(host);
+    });
     renderBadge(host);
     return host;
   }
 
-  function allBadges() {
-    return document.querySelectorAll('callina-badge[data-callina]');
+  // Only badges we made (a page could add look-alike elements).
+  function ourBadges() {
+    return [...document.querySelectorAll('callina-badge[data-callina]')].filter((b) => badges.has(b));
   }
 
   function rerenderAll() {
-    for (const b of allBadges()) if (b.__clPill) renderBadge(b);
+    for (const b of ourBadges()) renderBadge(b);
     if (tip) tip.cat.dataset.mascot = ''; // refill on next hover
   }
 
   // Remember nodes we added next to `owner`, so they can be removed if the page changes it.
   function track(owner, node) {
-    (owner.__clAdded || (owner.__clAdded = [])).push(node);
+    const list = added.get(owner);
+    if (list) list.push(node); else added.set(owner, [node]);
   }
 
   function dropAdded(owner) {
-    if (!owner.__clAdded) return;
-    for (const n of owner.__clAdded) if (n.parentNode) n.parentNode.removeChild(n);
-    owner.__clAdded = null;
+    const list = added.get(owner);
+    if (!list) return;
+    for (const n of list) if (n.parentNode) n.parentNode.removeChild(n);
+    added.delete(owner);
   }
 
   // ---- tooltip --------------------------------------------------------------
   let tip = null;
+  let tipBadge = null; // the badge the tooltip is showing
+  let tipToken = 0; // bumps on every show/hide, so a stale async show gives up
+  let lastPointer = 'mouse';
   const VIA_TEXT = { page: 'from the page', override: 'your setting for this site', tld: "from the site's domain", default: 'default' };
 
   function setImportant(el, props) {
@@ -229,14 +246,17 @@
     return tip;
   }
 
-  function showTip(e) {
-    const badge = e.currentTarget;
-    const { amount, high, currency, via, marker } = badgeData(badge);
+  async function showTip(badge) {
+    const token = ++tipToken;
+    tipBadge = badge;
+    await ensureCustomCats();
+    if (token !== tipToken || !badge.isConnected) return;
+    const { amount, high, currency, via, marker } = badges.get(badge);
     const r = compute(amount, high, currency);
     if (!r) return;
     const t = ensureTip();
     const home = settings.homeCurrency;
-    const curName = (CL.CURRENCIES[currency] || {}).name || '';
+    const curName = Object.hasOwn(CL.CURRENCIES, currency) ? CL.CURRENCIES[currency].name : '';
 
     t.orig.textContent = CV.formatOriginal(amount, currency, high);
     if (curName) { const s = document.createElement('small'); s.textContent = curName; t.orig.appendChild(s); }
@@ -271,6 +291,8 @@
   }
 
   function hideTip() {
+    tipToken++;
+    tipBadge = null;
     if (!tip) return;
     tip.card.classList.remove('show');
     tip.host.style.setProperty('display', 'none', 'important');
@@ -332,7 +354,7 @@
     let el = t.parentElement;
     for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
       if (el === document.body || el === document.documentElement) break;
-      if (el.__clSplit) return { el, done: true };
+      if (splitEls.has(el)) return { el, done: true };
       if (!acceptElement(el)) break;
       if (el.textContent.length > 30) break;
       if (el.getElementsByTagName('*').length >= 6) break;
@@ -357,7 +379,7 @@
       processed.add(t);
       if (split.done) return;
       const { el, price, texts } = split;
-      el.__clSplit = true;
+      splitEls.add(el);
       processed.add(el);
       for (const n of texts) processed.add(n);
       if (price.ambiguous === 'DOLLAR') sawDollar = true;
@@ -380,6 +402,7 @@
       if (p.end < t.data.length) {
         const rest = t.splitText(p.end);
         processed.add(rest);
+        rests.add(rest);
         track(t, rest);
       }
       const badge = makeBadge(p);
@@ -433,9 +456,9 @@
   function invalidateSplitAncestor(node) {
     let el = node && (node.nodeType === 1 ? node : node.parentElement);
     for (let i = 0; el && i < 5; i++, el = el.parentElement) {
-      if (el.__clSplit) {
+      if (splitEls.has(el)) {
         dropAdded(el);
-        el.__clSplit = false;
+        splitEls.delete(el);
         processed.delete(el);
         for (const n of textNodesOf(el)) processed.delete(n);
         pending.add(el);
@@ -471,6 +494,7 @@
       if (relevant) invalidateSplitAncestor(r.target);
     }
     observer.takeRecords(); // drop records caused by our own clean-up above
+    if (tipBadge && !tipBadge.isConnected) hideTip();
     if (!pending.size) return;
     // Debounce (~300 ms) but never wait more than 1 s on constantly-changing pages.
     const now = performance.now();
@@ -479,8 +503,21 @@
     debounceTimer = setTimeout(flushPending, now - firstPendingAt > 1000 ? 0 : 300);
   }
 
+  // SPAs change the URL without reloading; the new page may declare a different currency.
+  let lastHref = location.href;
+  let navAt = -Infinity;
+  function pageCurrencyChanged() {
+    if (location.href !== lastHref) { lastHref = location.href; navAt = performance.now(); }
+    if (performance.now() - navAt > 3000) return false; // keep looking briefly: metadata often arrives late
+    const pc = detectPageCurrency();
+    if (pc === pageCurrency) return false;
+    pageCurrency = pc;
+    return true;
+  }
+
   function flushPending() {
     debounceTimer = null;
+    if (pageCurrencyChanged()) { stop(); start(); return; } // ambiguous "$" may mean something else now
     for (const n of pending) if (n.isConnected) roots.push(n);
     pending.clear();
     schedule();
@@ -510,9 +547,18 @@
     roots.length = 0;
     texts = [];
     textIdx = 0;
-    for (const b of allBadges()) b.remove();
+    for (const b of ourBadges()) {
+      // Undo our split: "Only $10" + badge + " today" → "Only $10 today".
+      const prev = b.previousSibling;
+      const next = b.nextSibling;
+      b.remove();
+      if (prev && prev.nodeType === 3 && next && rests.has(next)) { prev.appendData(next.data); next.remove(); }
+    }
     hideTip();
     processed = new WeakSet();
+    splitEls = new WeakSet();
+    rests = new WeakSet();
+    added = new WeakMap();
     sawDollar = false;
   }
 
@@ -543,6 +589,16 @@
     }
   }
 
+  function ensureCustomCats() {
+    return customsLoaded || (customsLoaded = loadCustomCats());
+  }
+
+  function forgetCustomCats() {
+    customsLoaded = null;
+    customUrls = {};
+    if (tip) tip.cat.dataset.mascot = ''; // refill on next hover
+  }
+
   async function requestRates() {
     try {
       const res = await chrome.runtime.sendMessage({ type: 'getRates' });
@@ -557,15 +613,13 @@
       applySettings(prev);
       const catsChanged = prev.mascot !== settings.mascot || prev.moodMode !== settings.moodMode ||
         JSON.stringify(prev.moodCats) !== JSON.stringify(settings.moodCats);
-      if (catsChanged) loadCustomCats().then(rerenderAll);
+      if (catsChanged) forgetCustomCats();
     }
     if (area === 'local' && changes.rates && changes.rates.newValue) {
       rates = changes.rates.newValue;
       if (running) rerenderAll(); else if (shouldRun()) start();
     }
-    if (area === 'local' && customIdsInUse().some((id) => changes[S.customKey(id)])) {
-      loadCustomCats().then(rerenderAll);
-    }
+    if (area === 'local' && customIdsInUse().some((id) => changes[S.customKey(id)])) forgetCustomCats();
   });
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -573,7 +627,7 @@
     sendResponse({
       hostname: SITE,
       running,
-      count: running ? document.querySelectorAll('callina-badge[data-callina]:not([hidden])').length : 0,
+      count: running ? ourBadges().filter((b) => !b.hidden).length : 0,
       hasDollar: sawDollar,
       dollarAuto: parser.resolveCurrency('$', { ...buildCtx(), dollarOverride: null }).currency,
       pageCurrency,
@@ -582,12 +636,14 @@
   });
 
   window.addEventListener('scroll', hideTip, { capture: true, passive: true });
+  // A tap anywhere else, or Escape, closes a tooltip opened by touch or keyboard.
+  document.addEventListener('pointerdown', (e) => { if (tipBadge && e.target !== tipBadge) hideTip(); }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); }, true);
 
   (async function init() {
     try {
       const { settings: stored } = await chrome.storage.sync.get('settings');
       settings = S.normalizeSettings(stored);
-      await loadCustomCats();
     } catch (_) { /* use defaults */ }
     pageCurrency = detectPageCurrency();
     if (!shouldRun()) return;
