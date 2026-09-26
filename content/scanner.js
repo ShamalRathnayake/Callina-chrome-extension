@@ -69,9 +69,10 @@
 .conv{font-size:16px;font-weight:700;margin:1px 0}
 .rate,.via{font-size:11px;color:#86705A}
 .work{font-size:12.5px;color:#B15F00;font-weight:600;margin-top:3px}
+.nowork{font-size:11.5px;color:#C0392B;font-weight:600;margin-top:3px}
 @media (prefers-color-scheme:dark){
   .card{background:#241D16;color:#F7EBDC;border-color:#5A4127}
-  .orig small,.rate,.via{color:#C4AB8E}.work{color:#FFB757}
+  .orig small,.rate,.via{color:#C4AB8E}.work{color:#FFB757}.nowork{color:#FF8A7A}
   .say{background:#33291F;border-color:#6B4F2E}.say::before{border-right-color:#6B4F2E}}
 @media (prefers-reduced-motion:reduce){.card{transition:none}.card.show .say{animation:none}}`;
 
@@ -239,10 +240,12 @@
     const rate = line('rate');
     const via = line('via');
     const work = line('work');
+    const nowork = line('nowork');
+    nowork.textContent = "You haven't set your earnings yet. Set them in the Callina toolbar popup to see hours of work.";
     card.append(catBox, info);
     root.appendChild(card);
     document.documentElement.appendChild(host);
-    tip = { host, card, cat, mood, say, orig, conv, rate, via, work };
+    tip = { host, card, cat, mood, say, orig, conv, rate, via, work, nowork };
     return tip;
   }
 
@@ -270,6 +273,7 @@
     const hasWork = r.hours != null && CV.validIncome(settings.income);
     t.work.textContent = hasWork ? CV.formatWorkLong(r.hours, settings.income) : '';
     t.work.hidden = !hasWork;
+    t.nowork.hidden = CV.validIncome(settings.income);
     // Affordability mood → which cat, and which face it makes.
     const mood = CV.moodFor(r.hours, settings.income, r.usd);
     const catId = S.catForMood(settings, mood.id);

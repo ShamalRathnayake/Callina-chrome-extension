@@ -124,6 +124,7 @@
 
   function renderWork() {
     const inc = settings.income;
+    $('incomeNotice').hidden = CV.validIncome(inc);
     const table = rateInfo && rateInfo.rates && rateInfo.rates.table;
     const hourly = CV.hourlyRate(inc, settings.homeCurrency, table);
     $('workSummary').textContent = hourly ? `· ${CV.formatMoney(hourly, settings.homeCurrency)}/h` : '· not set';
@@ -167,6 +168,12 @@
       else delete s.dollarOverrides[host];
     });
     react('happy', 1200);
+  });
+
+  $('setIncome').addEventListener('click', (e) => {
+    e.preventDefault();
+    $('work').open = true;
+    $('incAmount').focus();
   });
 
   let workTimer = null;
