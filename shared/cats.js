@@ -311,7 +311,7 @@
   }
 
   function svg(id) {
-    return catSvg(DESIGNS[id] || DESIGNS.loaf);
+    return catSvg(Object.hasOwn(DESIGNS, id) ? DESIGNS[id] : DESIGNS.loaf);
   }
 
   // Toolbar icons are tiny: crop to the head.
@@ -422,7 +422,7 @@
 
   function fill(el, id, customUrl) {
     const useCustom = /^custom(:|$)/.test(id) && typeof customUrl === 'string' && customUrl.startsWith('data:image/');
-    const realId = useCustom ? 'custom' : DESIGNS[id] ? id : 'loaf';
+    const realId = useCustom ? 'custom' : Object.hasOwn(DESIGNS, id) ? id : 'loaf';
     el.dataset.cat = realId;
     el.dataset.mascot = id; // what was asked for, e.g. "custom:abc"
     el.textContent = '';

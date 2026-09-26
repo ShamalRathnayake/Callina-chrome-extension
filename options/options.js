@@ -10,16 +10,32 @@
   let settings = await ui.loadSettings();
   const MAX_CUSTOM = CL.settings.MAX_CUSTOM_CATS;
   let customs = await ui.loadCustomCats(); // [{ id, name, url }]
+  // Uploads from older versions could be ~1.4 MB each; shrink them once.
+  for (const c of customs) {
+    if (c.url.length < 400 * 1024) continue;
+    try {
+      const type = c.url.slice(5, c.url.indexOf(';'));
+      const { url } = await ui.shrinkImage(c.url, type);
+      if (url !== c.url) { await chrome.storage.local.set({ ['customCat:' + c.id]: url }); c.url = url; }
+    } catch (_) { /* leave it as it is */ }
+  }
   let rateInfo = await chrome.runtime.sendMessage({ type: 'getRates' }).catch(() => null);
   const table = () => (rateInfo && rateInfo.rates ? rateInfo.rates.table : null);
   let previewState = 'idle';
 
   let savedTimer = null;
   async function save(mutator) {
-    settings = await ui.saveSettings(mutator);
-    $('saved').textContent = 'Saved ✓';
     clearTimeout(savedTimer);
-    savedTimer = setTimeout(() => { $('saved').textContent = ''; }, 1500);
+    try {
+      settings = await ui.saveSettings(mutator);
+      $('saved').textContent = 'Saved ✓';
+      $('saved').classList.remove('err');
+      savedTimer = setTimeout(() => { $('saved').textContent = ''; }, 1500);
+    } catch (e) {
+      settings = await ui.loadSettings(); // show what is actually stored
+      $('saved').textContent = e.message;
+      $('saved').classList.add('err');
+    }
     renderAll();
   }
 
@@ -132,6 +148,7 @@
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'cat-card';
+    card.dataset.id = id;
     card.setAttribute('role', 'radio');
     card.setAttribute('aria-checked', String(settings.mascot === id));
     const box = document.createElement('div');
@@ -146,6 +163,13 @@
     card.append(box, name, text);
     card.addEventListener('click', () => selectMascot(id));
     return card;
+  }
+
+  // Updates the selection in place, so keyboard focus stays on the card that was picked.
+  function markSelected() {
+    for (const card of $('catGrid').querySelectorAll('.cat-card')) {
+      card.setAttribute('aria-checked', String(card.dataset.id === settings.mascot));
+    }
   }
 
   function renderGrid() {
@@ -188,6 +212,7 @@
 
   async function selectMascot(id) {
     await save((s) => { s.mascot = id; });
+    if (settings.mascot !== id) return; // the save failed; save() already said why
     cats.fill(heroCat, id, customUrl(id));
     cats.setState(heroCat, 'happy');
     setTimeout(() => cats.setState(heroCat, 'idle'), 1500);
@@ -227,10 +252,12 @@
     if (customs.length >= MAX_CUSTOM) throw new Error(`You can keep up to ${MAX_CUSTOM} images. Remove one first.`);
     if (!UPLOAD_TYPES.includes(file.type)) throw new Error(`${file.name}: please use a PNG, JPG, GIF or WebP image.`);
     if (file.size > MAX_UPLOAD) throw new Error(`${file.name} is ${(file.size / 1048576).toFixed(1)} MB; the limit is 1 MB.`);
-    const url = await readAsDataUrl(file);
+    const original = await readAsDataUrl(file);
     const img = new Image();
-    img.src = url;
+    img.src = original;
     await img.decode().catch(() => { throw new Error(`Couldn't read ${file.name}. Try another file.`); });
+    const { url, note } = await ui.shrinkImage(original, file.type);
+    if (note) notes.push(`${file.name}: ${note}`);
     const id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const name = file.name.replace(/\.[^.]+$/, '').slice(0, 30) || 'My cat';
     const index = [...customs.map(({ id: i, name: n }) => ({ id: i, name: n })), { id, name }];
@@ -243,20 +270,21 @@
     return id;
   }
 
+  let notes = []; // non-fatal remarks from addCustom
   async function handleFiles(files) {
     let lastId = null;
     const errors = [];
+    notes = [];
     for (const file of files) {
       try { lastId = await addCustom(file); } catch (e) { errors.push(e.message); }
     }
     if (lastId) {
       await selectMascot('custom:' + lastId);
-      uploadMsg(errors.length ? errors.join(' ') : 'Looking good! Your upload is now the mascot.', errors.length ? 'err' : 'ok');
+      uploadMsg(errors.length ? errors.join(' ') : ['Looking good! Your upload is now the mascot.', ...notes].join(' '), errors.length ? 'err' : 'ok');
     } else if (errors.length) {
       uploadMsg(errors.join(' '), 'err');
     }
-    renderGrid();
-    renderUpload();
+    renderAll(true);
   }
 
   async function removeCustom(id) {
@@ -265,7 +293,7 @@
     await chrome.storage.local.remove('customCat:' + id);
     uploadMsg('Image removed.', 'ok');
     if (settings.mascot === 'custom:' + id) await selectMascot('loaf');
-    else renderAll();
+    renderAll(true);
   }
 
   $('upload').addEventListener('change', (e) => { handleFiles([...e.target.files]); e.target.value = ''; });
@@ -306,11 +334,30 @@
     return sel;
   }
 
-  function renderMoods() {
+  let moodRows = []; // { id, li, catEl, range, sel }
+  function renderMoods(rebuild) {
     for (const r of document.querySelectorAll('input[name="moodMode"]')) r.checked = r.value === settings.moodMode;
+    const moods = CV.moodRanges(settings.income, settings.homeCurrency, table());
+    if (!rebuild && moodRows.length) {
+      // In-place update keeps focus on a select the user just changed.
+      moods.forEach((m, i) => {
+        const row = moodRows[i];
+        const catId = CL.settings.catForMood(settings, m.id);
+        row.li.classList.toggle('empty', m.empty);
+        row.range.textContent = m.empty ? 'Skipped with your current work settings' : m.range;
+        if (row.catEl.dataset.mascot !== catId) { cats.fill(row.catEl, catId, customUrl(catId)); cats.setState(row.catEl, m.expr); }
+        if (document.activeElement !== row.sel) {
+          row.sel.value = settings.moodCats[m.id];
+          if (row.sel.value !== settings.moodCats[m.id]) row.sel.value = 'loaf';
+        }
+        row.sel.disabled = settings.moodMode !== 'squad';
+      });
+      return;
+    }
     const ul = $('moodList');
     ul.textContent = '';
-    for (const m of CV.moodRanges(settings.income, settings.homeCurrency, table())) {
+    moodRows = [];
+    for (const m of moods) {
       const li = document.createElement('li');
       li.classList.toggle('empty', m.empty);
       const catId = CL.settings.catForMood(settings, m.id);
@@ -318,7 +365,8 @@
       btn.type = 'button';
       btn.className = 'mood-cat';
       btn.title = 'Click for another line';
-      btn.appendChild(cats.create(document, catId, m.expr, customUrl(catId)));
+      const catEl = cats.create(document, catId, m.expr, customUrl(catId));
+      btn.appendChild(catEl);
       const info = document.createElement('div');
       info.className = 'mood-info';
       const pill = document.createElement('span');
@@ -338,18 +386,25 @@
       sel.setAttribute('aria-label', `Cat for “${m.label}”`);
       li.append(btn, info, sel);
       ul.appendChild(li);
+      moodRows.push({ id: m.id, li, catEl, range, sel });
     }
   }
 
   // ---- 6. disabled sites -------------------------------------------------------------
+  let shownSites = null;
   function renderSites() {
+    const key = JSON.stringify([...settings.disabledSites].sort());
+    if (key === shownSites) return;
+    shownSites = key;
     const ul = $('sites');
+    const hadFocus = ul.contains(document.activeElement);
     ul.textContent = '';
     if (!settings.disabledSites.length) {
       const li = document.createElement('li');
       li.className = 'muted';
       li.textContent = 'No disabled sites.';
       ul.appendChild(li);
+      if (hadFocus) $('sitesHeading').focus();
       return;
     }
     for (const host of [...settings.disabledSites].sort()) {
@@ -364,22 +419,26 @@
       li.append(name, btn);
       ul.appendChild(li);
     }
+    if (hadFocus) (ul.querySelector('button') || $('sitesHeading')).focus();
   }
 
   function renderRateLine() {
     const r = rateInfo && rateInfo.rates;
-    $('rateLine').textContent = r
+    const line = $('rateLine');
+    line.textContent = r
       ? `Exchange rates from ${r.source}, dated ${r.date} (fetched ${ui.timeAgo(r.fetchedAt)}).`
       : 'Exchange rates not loaded yet.';
+    if (r && r.source === 'open.er-api.com') line.append(' ', ui.erApiAttribution());
   }
 
-  function renderAll() {
+  // `rebuild`: the set of uploads changed, so the cat grid and mood pickers need new entries.
+  function renderAll(rebuild = false) {
     renderHome();
     renderWorkPreview();
     renderDisplay();
-    renderGrid();
+    if (rebuild) renderGrid(); else markSelected();
     renderUpload();
-    renderMoods();
+    renderMoods(rebuild);
     renderSites();
     renderRateLine();
   }
@@ -389,7 +448,8 @@
     if (area === 'sync' && changes.settings) {
       const prevIncome = JSON.stringify(settings.income);
       settings = CL.settings.normalizeSettings(changes.settings.newValue);
-      if (JSON.stringify(settings.income) !== prevIncome && !document.activeElement.closest('.sentence')) fillWork();
+      const active = document.activeElement;
+      if (JSON.stringify(settings.income) !== prevIncome && !(active && active.closest('.sentence'))) fillWork();
       renderAll();
     }
     if (area === 'local' && changes.rates && changes.rates.newValue) {
@@ -400,6 +460,6 @@
   });
 
   fillWork();
-  renderAll();
+  renderAll(true);
   ui.updateToolbarIcon(settings.mascot, customUrl(settings.mascot));
 })();

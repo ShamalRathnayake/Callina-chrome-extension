@@ -9,12 +9,26 @@
     return S.normalizeSettings(settings);
   }
 
-  // Read-modify-write so the popup and options page don't clobber each other.
+  // Read-modify-write under a lock shared by the popup and options page (same origin),
+  // so two quick saves from different pages can't clobber each other.
+  // Throws an Error with a user-facing message when the save fails.
   async function saveSettings(mutator) {
-    const current = await loadSettings();
-    mutator(current);
-    await chrome.storage.sync.set({ settings: current });
-    return current;
+    const run = async () => {
+      const current = await loadSettings();
+      mutator(current);
+      // chrome.storage.sync caps one item at 8,192 bytes (key + JSON); the site lists are what grow.
+      const size = new Blob(['settings' + JSON.stringify(current)]).size;
+      if (size > chrome.storage.sync.QUOTA_BYTES_PER_ITEM) {
+        throw new Error('Too many saved sites. Remove some disabled sites (Options → Disabled sites) and try again.');
+      }
+      try {
+        await chrome.storage.sync.set({ settings: current });
+      } catch (e) {
+        throw new Error(`Couldn't save settings: ${e && e.message ? e.message : e}`);
+      }
+      return current;
+    };
+    return navigator.locks ? navigator.locks.request('callina-settings', run) : run();
   }
 
   // Data URL of the uploaded image for a "custom:<id>" mascot, else null.
@@ -112,5 +126,40 @@
     }
   }
 
-  CL.ui = { loadSettings, saveSettings, loadCustomUrl, loadCustomCats, injectCatCss, currencyChoices, fillCurrencySelect, timeAgo, updateToolbarIcon };
+  // ---- uploads: keep them small, since every tab that shows one has to load it ----------
+  const MAX_SIDE = 256; // px; the largest place a cat is drawn is ~120 px
+  const KEEP_GIF_BYTES = 300 * 1024; // small GIFs stay as they are, so they keep animating
+
+  // Returns { url, note } — a data URL no bigger than needed, and a message if it had to lose its animation.
+  async function shrinkImage(url, type) {
+    const bytes = Math.floor((url.length - url.indexOf(',') - 1) * 0.75);
+    if (type === 'image/gif' && bytes <= KEEP_GIF_BYTES) return { url, note: '' };
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const w = img.naturalWidth || MAX_SIDE;
+    const h = img.naturalHeight || MAX_SIDE;
+    const scale = Math.min(1, MAX_SIDE / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * scale));
+    c.height = Math.max(1, Math.round(h * scale));
+    const g = c.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, 0, 0, c.width, c.height);
+    const out = c.toDataURL('image/webp', 0.9);
+    if (out.length >= url.length && type !== 'image/gif') return { url, note: '' };
+    return { url: out, note: type === 'image/gif' ? 'Large GIFs are saved as a still image.' : '' };
+  }
+
+  // open.er-api.com's terms ask for this link wherever its rates are shown.
+  function erApiAttribution() {
+    const a = document.createElement('a');
+    a.href = 'https://www.exchangerate-api.com';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = 'Rates By Exchange Rate API';
+    return a;
+  }
+
+  CL.ui = { erApiAttribution, shrinkImage, loadSettings, saveSettings, loadCustomUrl, loadCustomCats, injectCatCss, currencyChoices, fillCurrencySelect, timeAgo, updateToolbarIcon };
 })(globalThis);

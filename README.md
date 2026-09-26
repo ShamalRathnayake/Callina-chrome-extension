@@ -23,7 +23,8 @@ No accounts, no backend, no analytics, no build step.
 - **Price detection**:
   - Symbols: `$ € £ ¥ ₹ ₩ ₽ ₺ ₫ ฿ ₱ R$ A$ C$ CA$ S$ HK$ NZ$ US$ Rs Rs. RM kr zł Fr. CHF 円 …`
   - ISO codes: `USD 49`, `49 USD`, `EUR49`. About 40 currencies are covered.
-  - Number formats: `1,234.56`, `1.234,56`, `1 234,56` (including no-break spaces), `$1.2k`, `£5m`, `$2 billion`.
+  - Number formats: `1,234.56`, `1.234,56`, `1 234,56` (including no-break spaces), lakh grouping (`₹1,00,000`, `Rs 12,34,567.50`), `$1.2k`, `£5m`, `$2 billion`.
+    Mixed or malformed grouping such as `1,234,5` is ignored rather than guessed.
   - Ranges: `$10 – $20` (two badges) and `$10–20` (one badge showing the range).
   - Split prices, such as Amazon's `<span>$</span><span>49</span><span>.99</span>` and `$49<sup>99</sup>`.
 - **Ambiguous symbols** (`$`, `¥`, `kr`, `Rs`) are resolved in this order:
@@ -35,7 +36,7 @@ No accounts, no backend, no analytics, no build step.
 - **Work hours**:
   - Enter your monthly income, hours per day and days per month. Each badge then shows how long you'd work for that price: `35 min`, `2.4 h`, `3.5 days`, `1.2 months`.
   - Invalid or empty income hides the work time everywhere.
-- **Hover tooltip** shows:
+- **Tooltip** (hover with a mouse, tap on touch screens, or Tab to a badge with the keyboard; Escape closes it) shows:
   - The original amount and currency.
   - A more precise conversion.
   - The rate used and its date.
@@ -86,15 +87,25 @@ How rates are fetched and cached:
 - **One USD-based table.** Any pair is cross-converted (`rate(A→B) = usd[B] / usd[A]`), so changing your home currency or income currency never needs a new request.
 - **Cached for 12 h** in `chrome.storage.local`. Cached rates are served immediately and refreshed in the background when stale.
 - **If every source fails,** the last cached rates keep working and the popup shows "Offline · rates from <date>".
+- **Sanity check.** A new table is accepted only if its major rates (EUR, GBP, JPY, CNY, INR, LKR, AUD, CAD, CHF, SGD) are within 25 % of the cached table,
+  or a second source agrees with it within 5 %. So a single broken or compromised source can't silently change every price.
+  (On first install there is nothing cached; a second source is still asked, but if only one answers, its table is used.)
+- **ExchangeRate-API attribution.** When its rates are in use, the popup and options page show its required "Rates By Exchange Rate API" link.
 - **Content scripts never fetch.** They ask the service worker for rates.
 
 ## Privacy
 
-**No data leaves your browser except a request for exchange rates.** In detail:
-- The extension downloads a public rate table. The request contains nothing about you or the pages you visit.
-- Settings live in `chrome.storage.sync`. Your uploaded images and the rate cache live in `chrome.storage.local`.
-  Each upload is stored under its own key (`customCat:<id>`), so web pages only read the one you selected.
+**Callina itself makes one kind of request: fetching a public exchange-rate table.** In detail:
+- The rate request contains nothing about you or the pages you visit.
+- Settings (home currency, **income**, the list of disabled sites, per-site `$` choices) live in `chrome.storage.sync`.
+  If Chrome sync is on, Chrome copies them to your Google account and other signed-in devices.
+- Uploaded images and the rate cache live in `chrome.storage.local` and stay on this device.
+  Uploads are shrunk to at most 256 px (small GIFs are kept as-is so they still animate), and a tab only reads the ones in use, the first time you open a tooltip.
 - Nothing is sent anywhere else. There are no analytics and no remote code.
+- **What a web page can see.** Badges are inserted into the page, so a page can tell Callina is installed.
+  Their content is in a closed shadow root and carries no data attributes. But a page could still measure a badge's *width*
+  to guess roughly how long its text is. That text includes the work-time estimate, so this could hint at your income bracket.
+  If that matters to you, turn off **Show work hours in the badge** (Options → Display); the tooltip still shows work time, and it only opens on real user input.
 
 Permissions:
 - `storage`
@@ -112,6 +123,8 @@ node --test tests/          # or: npm test
   - ranges and magnitudes
   - non-prices (dates, phone numbers, versions, percentages)
   - all five ambiguity rules
+- `tests/rates.test.js` covers rate-table cleaning, the 25 %/5 % sanity checks and toolbar-icon validation.
+- `tests/e2e.js` (optional) drives the real extension in Chrome for Testing: fixtures, split prices surviving a home-currency change, text restored on disable, a 200 KB number dump not freezing the page. See the file header for setup.
 - `tests/convert.test.js` covers:
   - cross rates
   - income validation and hourly-rate math
@@ -147,7 +160,9 @@ Tested on 2026-09-26 in Chrome for Testing 154 with the unpacked extension:
   - prices in images, `<canvas>` or cross-origin iframes (content scripts run in the top frame only)
   - prices inside other sites' shadow DOM (web components)
 - **Wrong domain guesses for `$`.** A `$` on a `.ca` site is read as CAD unless the page's metadata says otherwise. If a site's `$` really means something else, pick it in the popup.
-- **Space as thousands separator.** `$5 100` is read as $5,100, which is the conventional meaning in many locales but can be wrong for text like "3 100 USD" meaning "3 × 100 USD".
+- **Space as thousands separator.** After a symbol (`$5 100`) a plain space is *not* a separator, so "$10 250 sold" reads as $10. Before a symbol (`3 100 USD`) it is, which is the conventional meaning in many locales but can be wrong for "3 × 100 USD". No-break and thin spaces are separators in both positions.
+- **Very long text nodes** (over 20,000 characters) are skipped; they are data dumps, not price tags.
+- **Keyboard.** Every badge is a Tab stop, so pages with many prices have many extra stops.
 - **`PHP` below 10 is ignored**, so "PHP 8.2" (the language) isn't read as pesos.
 - **Toolbar icon.**
   - It updates when you open the popup or options page after changing the mascot on another synced device.
