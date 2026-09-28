@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Callina",
+  "name": "Callina: Prices in Your Currency & Work Hours",
   "version": "1.0.0",
   "minimum_chrome_version": "103",
-  "description": "Shows foreign prices in your home currency (LKR by default) and in hours of work, with a judgmental cat.",
+  "description": "See foreign prices in your own currency and in hours of work, with a judgmental cartoon cat reacting to every price.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://cdn.jsdelivr.net/npm/@fawazahmed0/*",
